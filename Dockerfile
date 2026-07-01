@@ -1,7 +1,6 @@
-# Use Node.js 20
-FROM node:20-alpine
+# ---------- Stage 1: Build ----------
+FROM node:20-alpine AS builder
 
-# Create working directory
 WORKDIR /app
 
 # Copy package files
@@ -10,14 +9,24 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy project files
+# Copy source code
 COPY . .
 
-# Build the application
+# Build Vite project
 RUN npm run build
 
-# Expose Vite preview port
-EXPOSE 4173
+# ---------- Stage 2: Production ----------
+FROM nginx:alpine
 
-# Start the application
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
+# Remove default nginx page
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy build output
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
